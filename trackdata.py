@@ -101,9 +101,9 @@ if __name__ == "__main__":
     path = '/Cooling/npdata/lv6_ps_50/'
     data_keys = ['pos', 'vel',]
     viscosity = 15*10**(-6)
-    domain_range = {'t':(0,7.4),'x':(0,8), 'y':(0,3), 'z':(0,0.5)}
-    grid_size = [51, 200, 200, 200]
-    bound_keys = ['ic', 'bcxu', 'bcxl', 'bcyu', 'bcyl', 'bczu', 'bczl']
+    domain_range = {'x':(-1.0,1.0), 'y':(-1.0,1.0), 'z':(-1.0,1.0)}
+    grid_size = [200, 200, 200]
+
     u_ref = 1.5
     v_ref = 1.5
     w_ref = 0.9
@@ -116,7 +116,6 @@ if __name__ == "__main__":
                                           w_ref = w_ref,
                                           p_ref = p_ref)
     all_params["domain"] = Domain.init_params(domain_range = domain_range, 
-                                              bound_keys = bound_keys,
                                               grid_size = grid_size)
     
     train_data, all_params = Data.train_data(all_params)

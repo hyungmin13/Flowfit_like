@@ -8,7 +8,10 @@ from velocity_pred import *
 from B_spline import *
 from typing import Any
 from flax import struct
-
+from jax import random
+import optax
+import jax
+#%%
 class FlowFitmodel(struct.PyTreeNode):
     params: Any
     forward: callable = struct.field(pytree_node=False)
@@ -18,6 +21,7 @@ class FlowFitmodel(struct.PyTreeNode):
 @partial(jax.jit, static_arnums=())
 def FlowFit_update(model_states,):
     return
+
 class FlowFitbase:
     def __init__(self, c):
         c.get_outdirs()
@@ -26,7 +30,37 @@ class FlowFitbase:
 
 class FlowFit3(FlowFitbase):
     def train(self):
+        all_params = {"domain":{}, "data":{}, "projection":{}, "prediction":{}}
+        all_params["domain"] = self.c.domain.init_params(**self.c.domain_init_kwargs)
+        all_params["data"] = self.c.data.init_params(**self.c.data_init_kwargs)
+        all_params["projection"] = self.c.projection.init_params(**self.c.projection_init_kwargs)
+        all_params["prediction"] = self.c.prediction.init_params(**self.c.prediction_init_kwargs)
         
+        global_key = random.PRNGKey(42)
+        key, coefficient_key = random.split(global_key)
+        learn_rate = optax.exponential_decay(self.c.optimization_init_kwargs["learning_rate"],
+                                             self.c.optimization_init_kwargs["decay_step"],
+                                             self.c.optimization_init_kwargs["decay_rate"],)
+        optimiser = self.c.optimization_init_kwargs["optimiser"](learning_rate=learn_rate, b1=0.95, b2=0.95,
+                                                                 weight_decay=0.01, precondition_frequency=5)
+        model_states = optimiser.init(all_params["network"]["layers"])
+        optimiser_fn = optimiser.update
+        model_fn = self.c.network.network_fn
+        dynamic_params = all_params["network"].pop("layers")
+        equation_fn = self.c.equation.Loss
+        report_fn = self.c.equation.Loss_report
+        all_params, p_p, p_u, p_v, p_w = self.c.domain.generate_staggered_p(all_params)
+        train_data, all_params = self.c.data.train_data(all_params)
+        c0 = np.random.normal(size=p_p.sape)*0.1
+        c_sol, c_irrot = self.c.projection.helmholtz_hodge_decomposition(c0)
+
+        leaves, treedef = jax.tree_util.tree_flatten(all_params)
+        static_params = tuple(x if isinstance(x,(np.ndarray, jnp.ndarray)) else None for x in leaves)
+        static_leaves = tuple(None if isinstance(x,(np.ndarray, jnp.ndarray)) else x for x in leaves)
+        static_keys = (static_leaves, treedef)
+
+        return
+#%%
 if __name__ == "__main__":
 
     I = J = K = 32  

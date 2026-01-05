@@ -2,7 +2,7 @@
 import numpy as np
 from B_spline import *
 from domain import *
-
+from jax import random
 class Projector:
     @staticmethod
     def __init__(*args):
@@ -11,6 +11,14 @@ class Projector:
 class FFTProjector(Projector):
     def __init__(self, all_params):
         self.all_params = all_params
+    @staticmethod
+    def init_params(key, coeff_shape, time_length):
+        keys = random.split(key, time_length)
+        c0s = [random.normal(keys[i], shape=coeff_shape)*0.1 for i in range(time_length)]
+        coefficients = [FFTProjector.helmholtz_hodge_decomposition(c0s[i])[0] for i in range(len(c0s))]
+        projection_params = {"coefficients": coefficients, "time_legth": time_length}
+        return projection_params
+    
     @staticmethod
     def solve_discrete_poisson_fft(b, h=1.0):
         N = b.shape[0]
@@ -69,23 +77,17 @@ class FFTProjector(Projector):
 
 if __name__=='__main__':
     import matplotlib.pyplot as plt
-    I = J = K = 32  
-    grid_shape = (I, J, K, 3)
 
-    xc = np.linspace(-1.0, 1.0, I)
-    yc = np.linspace(-1.0, 1.0, J)
-    zc = np.linspace(-1.0, 1.0, K)
-    dx = float(xc[1] - xc[0])
-    dy = float(yc[1] - yc[0])
-    dz = float(zc[1] - zc[0])
-    X,Y,Z = np.meshgrid(xc, yc, zc, indexing='ij')
-    c0 = np.random.normal(size=grid_shape) * 0.1
+    all_params = {"domain":{}, "data":{}, "coefficient":{}}
+    domain_range= {'x':(-1.0, 1.0), 'y':(-1.0, 1.0), 'z':(-1.0, 1.0)}
+    grid_size = [256,256,256]
+    key = random.PRNGKey(0)
+    all_params["domain"] = Domain.init_params(domain_range = domain_range,
+                                              grid_size = grid_size)    
+    all_params, p_p, p_u, p_v, p_w = Domain.generate_staggered_p(all_params)
+    projection_params = FFTProjector.init_params(key, p_p, 10)
 
-    F=c0
-    F_solenoidal = F.copy()
-    F_solenoidal, F_irrotational = FFTProjector.helmholtz_hodge_decomposition(F_solenoidal)
-
-    plt.imshow(FFTProjector.calculate_divergence_central(F_solenoidal)[:,:,10])
+    plt.imshow(FFTProjector.calculate_divergence_central(projection_params['coefficients'][1])[:,:,10])
     plt.colorbar()
     plt.show()
 # %%
