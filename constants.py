@@ -80,25 +80,25 @@ def print_c_dicts(c_dicts):
 
 class Constants(ConstantsBase):
     def __init__(self, **kwargs):
-        self.run = "HIT"
-
+        self.run = "FlowFit_like_run"
         
         self.domain_init_kwargs = dict()
         self.data_init_kwargs = dict()
-        self.network_init_kwargs = dict()
-        self.problem_init_kwargs = dict()
+        self.projection_init_kwargs = dict()
+        self.prediction_init_kwargs = dict()
         self.optimization_init_kwargs = dict()
-        self.equation_init_kwargs = dict()
+        #self.equation_init_kwargs = dict()
         for key in kwargs.keys(): self[key] = kwargs[key]
 
         self.domain = domain.Domain
         self.data = trackdata.Data
         self.projection = projection.FFTProjector
         self.prediction = velocity_pred.VelocityPrediction3D
-        if self.optimization_init_kwargs['optimiser'] == 'soap':
-            self.optimization_init_kwargs['optimiser'] = soap
-        else:
-            self.optimization_init_kwargs['optimiser'] = optax.adam
+
+        #if self.optimization_init_kwargs['optimiser'] == 'soap':
+        #    self.optimization_init_kwargs['optimiser'] = soap
+        #else:
+        #    self.optimization_init_kwargs['optimiser'] = optax.adam
         
 
 if __name__ == "__main__":

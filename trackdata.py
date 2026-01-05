@@ -98,10 +98,10 @@ if __name__ == "__main__":
     all_params = {"data":{}, "domain":{}}
 
     cur_dir = os.getcwd()
-    path = '/Cooling/npdata/lv6_ps_50/'
+    path = '/ETFS/HIT/train_data/lv1/'
     data_keys = ['pos', 'vel',]
     viscosity = 15*10**(-6)
-    domain_range = {'x':(-1.0,1.0), 'y':(-1.0,1.0), 'z':(-1.0,1.0)}
+    domain_range = {'t':(0,1.0), 'x':(-1.0,1.0), 'y':(-1.0,1.0), 'z':(-1.0,1.0)}
     grid_size = [200, 200, 200]
 
     u_ref = 1.5
@@ -119,3 +119,7 @@ if __name__ == "__main__":
                                               grid_size = grid_size)
     
     train_data, all_params = Data.train_data(all_params)
+
+# %%
+    print(np.max(np.abs(train_data['pos'][:,3])))
+# %%

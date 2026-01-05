@@ -18,9 +18,9 @@ class FlowFitmodel(struct.PyTreeNode):
     def __apply__(self,*args):
         return self.forward(*args)
     
-@partial(jax.jit, static_arnums=())
-def FlowFit_update(model_states,):
-    return
+#@partial(jax.jit, static_arnums=())
+#def FlowFit_update(model_states,):
+#    return
 
 class FlowFitbase:
     def __init__(self, c):
@@ -37,22 +37,46 @@ class FlowFit3(FlowFitbase):
         all_params["prediction"] = self.c.prediction.init_params(**self.c.prediction_init_kwargs)
         
         global_key = random.PRNGKey(42)
-        key, coefficient_key = random.split(global_key)
+        key, projection_key = random.split(global_key)
         learn_rate = optax.exponential_decay(self.c.optimization_init_kwargs["learning_rate"],
                                              self.c.optimization_init_kwargs["decay_step"],
                                              self.c.optimization_init_kwargs["decay_rate"],)
-        optimiser = self.c.optimization_init_kwargs["optimiser"](learning_rate=learn_rate, b1=0.95, b2=0.95,
-                                                                 weight_decay=0.01, precondition_frequency=5)
-        model_states = optimiser.init(all_params["network"]["layers"])
+        optimiser = optax.lbfgs()
+        model_states = optimiser.init(all_params["projection"]['coefficients'])
         optimiser_fn = optimiser.update
-        model_fn = self.c.network.network_fn
-        dynamic_params = all_params["network"].pop("layers")
+        #optimiser = self.c.optimization_init_kwargs["optimiser"](learning_rate=learn_rate, b1=0.95, b2=0.95,
+        #                                                         weight_decay=0.01, precondition_frequency=5)
+        #model_states = optimiser.init(all_params["network"]["layers"])
+        optimiser_fn = optimiser.update
+        model_fn = self.c.prediction.velocity_pred
+        dynamic_params = all_params["projection"].pop("coefficients")
         equation_fn = self.c.equation.Loss
         report_fn = self.c.equation.Loss_report
+
+
         all_params, p_p, p_u, p_v, p_w = self.c.domain.generate_staggered_p(all_params)
         train_data, all_params = self.c.data.train_data(all_params)
-        c0 = np.random.normal(size=p_p.sape)*0.1
-        c_sol, c_irrot = self.c.projection.helmholtz_hodge_decomposition(c0)
+        xc = np.linspace(all_params['domain']['domain_range']['x'][0], all_params['domain']['domain_range']['x'][1], all_params['domain']['grid_size'][0])
+        yc = np.linspace(all_params['domain']['domain_range']['y'][0], all_params['domain']['domain_range']['y'][1], all_params['domain']['grid_size'][1])
+        zc = np.linspace(all_params['domain']['domain_range']['z'][0], all_params['domain']['domain_range']['z'][1], all_params['domain']['grid_size'][2])
+        dx = xc[1]-xc[0]
+        dy = yc[1]-yc[0]
+        dz = zc[1]-zc[0]
+
+        vals, counts = np.unique(train_data['pos'][:,0], return_counts=True)
+        counts = np.concatenate([[0], counts])
+        index_list = []
+        x_u_list = []
+        x_v_list = []
+        x_w_list = []
+        for i in range(len(vals)):
+            indexes = VelocityPrediction3D.find_indexes(train_data['pos'][np.sum(counts[i]):np.sum(counts[i+1]),1:],xc, yc, zc, dx, dy, dz)
+            x_u, x_v, x_w = VelocityPrediction3D.data_reshape(train_data['pos'][np.sum(counts[i]):np.sum(counts[i+1]),1:], *indexes, dx, dy, dz, xc, yc, zc)
+            index_list.append(indexes)
+            x_u_list.append(x_u)
+            x_v_list.append(x_v)
+            x_w_list.append(x_w)
+        
 
         leaves, treedef = jax.tree_util.tree_flatten(all_params)
         static_params = tuple(x if isinstance(x,(np.ndarray, jnp.ndarray)) else None for x in leaves)
