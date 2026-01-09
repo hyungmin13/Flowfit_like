@@ -27,51 +27,52 @@ class FFTProjector(Projector):
     def solve_discrete_poisson_fft(b, h=1.0):
         N = b.shape[0]
 
-        idx = np.arange(N)
-        k_discrete = 2 * (np.cos(2 * np.pi * idx / N) - 1) / (h**2)
+        idx = jnp.arange(N)
+        k_discrete = 2 * (jnp.cos(2 * jnp.pi * idx / N) - 1) / (h**2)
 
-        kx, ky, kz = np.meshgrid(k_discrete, k_discrete, k_discrete, indexing='ij')
+        kx, ky, kz = jnp.meshgrid(k_discrete, k_discrete, k_discrete, indexing='ij')
         
         L_hat = kx + ky + kz
         
-        b_hat = np.fft.fftn(b)
+        b_hat = jnp.fft.fftn(b)
         
-        L_hat[0, 0, 0] = 1.0
-        b_hat[0, 0, 0] = 0.0
-
+        #L_hat[0, 0, 0] = 1.0
+        L_hat = L_hat.at[0,0,0].set(1.0)
+        #b_hat[0, 0, 0] = 0.0
+        b_hat = b_hat.at[0,0,0].set(0.0)
         phi_hat = b_hat / L_hat
-        phi = np.real(np.fft.ifftn(phi_hat))
+        phi = jnp.real(jnp.fft.ifftn(phi_hat))
         
         return phi
     
     @staticmethod
     def calculate_divergence_backward(F, h=1.0):
         Fx, Fy, Fz = F[..., 0], F[..., 1], F[..., 2]
-        dFx = (Fx - np.roll(Fx, 1, axis=0)) / h
-        dFy = (Fy - np.roll(Fy, 1, axis=1)) / h
-        dFz = (Fz - np.roll(Fz, 1, axis=2)) / h
+        dFx = (Fx - jnp.roll(Fx, 1, axis=0)) / h
+        dFy = (Fy - jnp.roll(Fy, 1, axis=1)) / h
+        dFz = (Fz - jnp.roll(Fz, 1, axis=2)) / h
         return dFx + dFy + dFz
     
     @staticmethod
     def calculate_divergence_central(F, h=1.0):
         Fx, Fy, Fz = F[..., 0], F[..., 1], F[..., 2]
-        dFx = (np.roll(Fx, 1, axis=0) - np.roll(Fx, 1, axis=0)) / (2*h)
-        dFy = (np.roll(Fy, 1, axis=1) - np.roll(Fy, 1, axis=1)) / (2*h)
-        dFz = (np.roll(Fz, 1, axis=2) - np.roll(Fz, 1, axis=2)) / (2*h)
+        dFx = (jnp.roll(Fx, 1, axis=0) - jnp.roll(Fx, 1, axis=0)) / (2*h)
+        dFy = (jnp.roll(Fy, 1, axis=1) - jnp.roll(Fy, 1, axis=1)) / (2*h)
+        dFz = (jnp.roll(Fz, 1, axis=2) - jnp.roll(Fz, 1, axis=2)) / (2*h)
         return dFx + dFy + dFz
     
     @staticmethod
     def calculate_gradient_forward(phi, h=1.0):
-        dphi_dx = (np.roll(phi, -1, axis=0) - phi) / h
-        dphi_dy = (np.roll(phi, -1, axis=1) - phi) / h
-        dphi_dz = (np.roll(phi, -1, axis=2) - phi) / h
-        return np.stack((dphi_dx, dphi_dy, dphi_dz), axis=-1)
+        dphi_dx = (jnp.roll(phi, -1, axis=0) - phi) / h
+        dphi_dy = (jnp.roll(phi, -1, axis=1) - phi) / h
+        dphi_dz = (jnp.roll(phi, -1, axis=2) - phi) / h
+        return jnp.stack((dphi_dx, dphi_dy, dphi_dz), axis=-1)
     
     @staticmethod
     def helmholtz_hodge_decomposition(F):
 
         div_F = FFTProjector.calculate_divergence_backward(F)
-        mean_div_F = np.mean(div_F)
+        mean_div_F = jnp.mean(div_F)
         b = div_F - mean_div_F
         phi = FFTProjector.solve_discrete_poisson_fft(b)
         F_irr = FFTProjector.calculate_gradient_forward(phi)
