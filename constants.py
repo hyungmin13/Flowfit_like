@@ -57,7 +57,7 @@ class ConstantsBase:
         with open(self.summary_out_dir + f"constants.pickle", 'wb') as f:
             pickle.dump(vars(self), f)
         with open(self.report_out_dir + f"reports.txt", 'w') as f:
-            f.write(f"{'Steps':{12}} {'Loss':{12}} {'U_loss':{12}} {'V_loss':{12}} {'W_loss':{12}} {'Con_loss':{12}} {'NS1_loss':{12}} {'NS2_loss':{12}} {'NS3_loss':{12}} {'ENR_loss':{12}} {'U_error':{12}} {'V_error':{12}} {'W_error':{12}} {'T_error':{12}}\n")
+            f.write(f"{'Steps':{12}} {'U_error':{12}} {'V_error':{12}} {'W_error':{12}} {'T_error':{12}}\n")
 
     @property
     def constants_file(self):

@@ -74,18 +74,16 @@ class VelocityPrediction3D(VelocityPredictor):
     @staticmethod
     def velocity_pred(c, indexes, dx, dy, dz, x_u, x_v, x_w):
         c_sliced = c[..., 0]
-
+        b1 = x_u[:,0]/dx
+        b_ = B_spline.beta4(x_u[:,0]/dx)
         b3_ux = B_spline.beta4(x_u[:,0]/dx).reshape(-1,5)
         b3_uy = B_spline.beta3(x_u[:,1]/dy).reshape(-1,5)
         b3_uz = B_spline.beta3(x_u[:,2]/dz).reshape(-1,5)
 
-
         idx_x = indexes[0, :, :, None, None] # (N, 5, 1, 1)
         idx_y = indexes[1, :, None, :, None] # (N, 1, 5, 1)
         idx_z = indexes[2, :, None, None, :] # (N, 1, 1, 5)
-
         extracted_c = c_sliced[idx_x, idx_y, idx_z]
-
         ux = b3_ux[:, :, np.newaxis, np.newaxis]
         uy = b3_uy[:, np.newaxis, :, np.newaxis]
         uz = b3_uz[:, np.newaxis, np.newaxis, :]
@@ -305,8 +303,19 @@ if __name__=="__main__":
     plt.imshow(FFTProjector.calculate_divergence_central(preds_)[:,:,10])
     plt.colorbar()
     plt.show()
+    plt.imshow(preds_[:,:,10,0])
+    plt.colorbar()
+    plt.show()
+    plt.imshow(projection_params['coefficients'][2][:,:,10])
+    plt.colorbar()
+    plt.show()
 # %%
-    print(u_pred_.shape)
+    plt.imshow(preds_[:,:,10,0])
+    plt.colorbar()
+    plt.show()
+    plt.imshow(projection_params['coefficients'][2][:,:,10,0])
+    plt.colorbar()
+    plt.show()
 # %%
-    print(indexes_list[0].shape)
+    print(projection_params['coefficients'][2][:,:,10].shape)
 # %%

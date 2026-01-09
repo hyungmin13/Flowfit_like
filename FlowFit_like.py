@@ -13,6 +13,7 @@ from jax import random
 from jax import value_and_grad
 import optax
 import jax
+from flax.serialization import to_state_dict, from_state_dict
 #%%
 class FlowFitmodel(struct.PyTreeNode):
     params: Any
@@ -47,16 +48,13 @@ def FlowFit_update(model_states, optimiser_fn, equation_fn, dynamic_params, stat
         def local_loss(p):
             return equation_fn(p, all_params, idx, dx, dy, dz, xu, xv, xw, pv, model_fn)
         val, grad = jax.value_and_grad(local_loss)(d_p)
-        print("Grad : ",grad.shape)
-        grad_p = projection_fn(grad)[0]
-        updates, new_state = optimiser_fn(grad_p, state, d_p, value=val, grad=grad, value_fn=local_loss)
+        updates, new_state = optimiser_fn(grad, state, d_p, value=val, grad=grad, value_fn=local_loss)
         new_param = optax.apply_updates(d_p, updates)
         return new_param, new_state, val
 
     vmap_fn = jax.vmap(single_update, in_axes=(0, state_in_axes, 0, 0, 0, 0, 0), out_axes=(0, state_out_axes, 0))
     
     new_params, new_states, lossvals = vmap_fn(dynamic_params, model_states, index_list, xu_list, xv_list, xw_list, particle_vel)
-
     def fix_scalars(leaf, in_axis):
         if in_axis is None and hasattr(leaf, 'ndim') and leaf.ndim > 0:
             return leaf[0] 
@@ -75,12 +73,7 @@ class FlowFitbase:
 
 class FlowFit3(FlowFitbase):
     def train(self):
-        def safe_stack(*args):
-            # 입력된 요소가 jax array(또는 넘파이)인 경우에만 stack 수행
-            if isinstance(args[0], (jnp.ndarray, jax.Array)):
-                return jnp.stack(args)
-            # 데이터가 없는 빈 상태(EmptyState 등)인 경우 그냥 첫 번째 요소를 반환
-            return args[0]
+
         all_params = {"domain":{}, "data":{}, "projection":{}, "prediction":{}}
         all_params["domain"] = self.c.domain.init_params(**self.c.domain_init_kwargs)
         all_params["data"] = self.c.data.init_params(**self.c.data_init_kwargs)
@@ -92,7 +85,7 @@ class FlowFit3(FlowFitbase):
         learn_rate = optax.exponential_decay(self.c.optimization_init_kwargs["learning_rate"],
                                              self.c.optimization_init_kwargs["decay_step"],
                                              self.c.optimization_init_kwargs["decay_rate"],)
-        optimiser = optax.lbfgs()
+        optimiser = optax.adam(1e-3)
 
         model_states = optimiser.init(all_params["projection"]['coefficients'])
 
@@ -158,8 +151,7 @@ class FlowFit3(FlowFitbase):
         xu_mask = jnp.stack(xu_mask)[:3,:]
         xv_mask = jnp.stack(xv_mask)[:3,:]
         xw_mask = jnp.stack(xw_mask)[:3,:]
-        print(xu_mask)
-        print(xu_mask.shape)
+
         index_list = jnp.stack(index_padded)[:3,:,:,:]
         index_mask = jnp.stack(index_mask)[:3,:,:]
         
@@ -169,11 +161,53 @@ class FlowFit3(FlowFitbase):
         static_keys = (static_leaves, treedef)
         update = FlowFit_update.lower(model_states, optimiser_fn, equation_fn, dynamic_params, static_params, static_keys, index_list, index_mask, dx, dy, dz, 
                    xu_list, xu_mask, xv_list, xv_mask, xw_list, xw_mask, particle_vel, particle_vel_mask, particle_acc, projection_fn, model_fn).compile()
-        
-        while 1:
-            lossvals, model_states, new_params_list = update(model_states, dynamic_params, static_params, index_list, index_mask, dx, dy, dz, 
+        i = 0
+        for i in tqdm(range(100000)):
+            lossvals, model_states, dynamic_params = update(model_states, dynamic_params, static_params, index_list, index_mask, dx, dy, dz, 
                                                                 xu_list, xu_mask, xv_list, xv_mask, xw_list, xw_mask, particle_vel, particle_vel_mask, particle_acc)
-            print('check')
+            
+            self.report(i, report_fn, dynamic_params, all_params, index_list, index_mask, dx, dy, dz, 
+                                                                xu_list, xu_mask, xv_list, xv_mask, xw_list, xw_mask, particle_vel, particle_vel_mask, particle_acc, 
+                                                                self.c.optimization_init_kwargs["save_step"], model_fn)
+            #self.save_model(i, dynamic_params, all_params, self.c.optimization_init_kwargs["save_step"], model_fn)
+            i +=1
+
+        print(dynamic_params)
+        #print(grad)
+        return
+    
+    def save_model(self, i, dynamic_params, all_params, save_step, model_fns):
+        model_save = (i % save_step == 0)
+        if model_save:
+            all_params["projection"]['coefficients'] = dynamic_params
+            model = FlowFitmodel(all_params["projection"]['coefficients'], model_fns)
+            serialised_model = to_state_dict(model)
+            with open(self.c.model_out_dir + "saved_dic_"+str(i)+".pkl","wb") as f:
+                pickle.dump(serialised_model,f)
+        return
+    
+    def report(self, i, report_fn, dynamic_params, all_params, index_list, index_mask, dx, dy, dz, 
+               xu_list, xu_mask, xv_list, xv_mask, xw_list, xw_mask, particle_vel, particle_vel_mask, 
+               particle_acc, save_step, model_fns):
+        save_report = (i % save_step == 0)
+        if save_report:
+            all_params["projection"]['coefficients'] = dynamic_params
+            #vmap_model = jax.vmap(model_fns, in_axes=(0, 0, None, None, None, 0, 0, 0))
+            #u_pred, v_pred, w_pred = vmap_model(dynamic_params, index_list, dx, dy, dz, xu_list, xv_list, xw_list)
+            dynamic_params_new = np.array(dynamic_params)
+            u_pred, v_pred, w_pred = model_fns(dynamic_params[0], index_list[0], dx, dy, dz, xu_list[0], xv_list[0], xw_list[0])
+            u_error = jnp.sqrt(jnp.mean((u_pred - particle_vel[:,:,0])**2)/jnp.mean(particle_vel[0,:,0]**2))
+            v_error = jnp.sqrt(jnp.mean((v_pred - particle_vel[:,:,1])**2)/jnp.mean(particle_vel[0,:,1]**2))
+            w_error = jnp.sqrt(jnp.mean((w_pred - particle_vel[:,:,2])**2)/jnp.mean(particle_vel[0,:,2]**2))
+            #if v_pred.shape[1] == 5:
+            #    T_error = jnp.sqrt(jnp.mean((all_params["data"]["T_ref"]*v_pred[:,4] - e_batch_T)**2)/jnp.mean(e_batch_T**2))
+
+            #Losses = report_fn(dynamic_params, all_params, g_batch, p_batch, v_batch, b_batch, model_fns)
+            print('check3')
+            print(f"step_num : {i:<{12}} u_error : {u_error:<{12}.{5}} v_error : {v_error:<{12}.{5}} w_error : {w_error:<{12}.{5}}")
+            with open(self.c.report_out_dir + "reports.txt", "a") as f:
+                f.write(f"{i:<{12}} {u_error:<{12}.{5}} {v_error:<{12}.{5}} {w_error:<{12}.{5}}\n")
+            f.close()
         return
 #%%
 if __name__ == "__main__":

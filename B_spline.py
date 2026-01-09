@@ -24,7 +24,6 @@ class B_spline(B_spline_bases):
                         jnp.where(a < 2.0, val2, 0.0))
     @staticmethod
     def beta4(t):
-
         a = jnp.abs(t)
 
         region1 = (a < 0.5)
@@ -36,7 +35,6 @@ class B_spline(B_spline_bases):
 
         region3 = (a >= 1.5) & (a < 2.5)
         val3 = (1.0/24.0) * (2.5 - a)**4
-
         return jnp.where(region1, val1,
                         jnp.where(region2, val2,
                                 jnp.where(region3, val3, 0.0)))
