@@ -56,7 +56,7 @@ class Data(Database):
         domain_range = all_params["domain"]["domain_range"]
         arg_keys = ['t', 'x', 'y', 'z']
         for i in range(data['pos'].shape[1]):
-            data['pos'][:,i] = data['pos'][:,i]/domain_range[arg_keys[i]][1]
+            data['pos'][:,i] = data['pos'][:,i] #/domain_range[arg_keys[i]][1]
         return data
 
     @staticmethod
