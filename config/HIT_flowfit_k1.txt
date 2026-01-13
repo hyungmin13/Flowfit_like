@@ -3,5 +3,5 @@ domain_init_kwargs: {'domain_range': {'t': (0, 0.04), 'x': (0, 0.1), 'y': (0, 0.
 data_init_kwargs: {'path': '/ETFS/HIT/train_data/lv1/', 'data_keys': ['pos', 'vel', 'acc'], 'viscosity': 1.5e-05, 'u_ref': 1.5, 'v_ref': 1.5, 'w_ref': 0.9, 'p_ref': 1.5}
 projection_init_kwargs: {'key': 0, 'coeff_shape': (256,256,256,3), 'time_length': 3}
 prediction_init_kwargs: {'loss_weights': (1.0, 1.0, 1.0, 1e-06, 1e-06, 1e-06, 1e-06), 'path_s': '/ETFS/HIT/ground/'}
-optimization_init_kwargs: {'optimiser': 'lbfgs', 'learning_rate': 0.001, 'decay_step': 16000, 'decay_rate': 0.9, 'n_steps': 100000, 'save_step': 1000, 'p_batch': 10000, 'e_batch': 10000, 'b_batch': 10000}
+optimization_init_kwargs: {'optimiser': 'lbfgs', 'learning_rate': 0.001, 'decay_step': 16000, 'decay_rate': 0.9, 'n_steps': 100000, 'save_step': 10000, 'p_batch': 10000, 'e_batch': 10000, 'b_batch': 10000}
 equation_init_kwargs: {'equation': 'Linear'}

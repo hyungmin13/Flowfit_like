@@ -169,7 +169,7 @@ class FlowFit3(FlowFitbase):
                    xu_list, xu_mask, xv_list, xv_mask, xw_list, xw_mask, particle_vel, particle_vel_mask, particle_acc, projection_fn, model_fn).compile()
         i = 0
         
-        for i in tqdm(range(10000)):
+        for i in tqdm(range(100000)):
             lossvals, model_states, dynamic_params = update(model_states, dynamic_params, static_params, index_list, index_mask, dx, dy, dz, 
                                                                 xu_list, xu_mask, xv_list, xv_mask, xw_list, xw_mask, particle_vel, particle_vel_mask, particle_acc)
             
