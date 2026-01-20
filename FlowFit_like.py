@@ -50,6 +50,7 @@ def FlowFit_update(model_states, optimiser_fn, equation_fn, dynamic_params, stat
         val, grad = jax.value_and_grad(local_loss)(d_p)
         grad_projection = projection_fn(grad)[0]
         updates, new_state = optimiser_fn(grad_projection, state, d_p, value=val, grad=grad_projection, value_fn=local_loss)
+        #updates, new_state = optimiser_fn(grad_projection, state, d_p)
         new_param = optax.apply_updates(d_p, updates)
         return new_param, new_state, val
 
@@ -90,8 +91,8 @@ class FlowFit3(FlowFitbase):
         learn_rate = optax.exponential_decay(self.c.optimization_init_kwargs["learning_rate"],
                                              self.c.optimization_init_kwargs["decay_step"],
                                              self.c.optimization_init_kwargs["decay_rate"],)
-        optimiser = optax.adam(1e-3)
-
+        #optimiser = optax.sgd(learning_rate=1e-3, momentum=0.9)
+        optimiser = optax.adam(learning_rate=1e-3)
         model_states = optimiser.init(all_params["projection"]['coefficients'])
 
         optimiser_fn = optimiser.update
@@ -201,6 +202,7 @@ class FlowFit3(FlowFitbase):
             all_params["projection"]['coefficients'] = dynamic_params
             #vmap_model = jax.vmap(model_fns, in_axes=(0, 0, None, None, None, 0, 0, 0))
             #u_pred, v_pred, w_pred = vmap_model(dynamic_params, index_list, dx, dy, dz, xu_list, xv_list, xw_list)
+            t_loss, u_loss, v_loss, w_loss, p_loss = report_fn(dynamic_params[0,:,:,:,:], all_params, index_list[0,:,:,:], dx, dy, dz, xu_list[0,:,:], xv_list[0,:,:], xw_list[0,:,:], particle_vel[0,:,:], model_fns)
             dynamic_params_new = np.array(dynamic_params)
             u_pred, v_pred, w_pred = model_fns(dynamic_params[0,:,:,:,:], index_list[0,:,:,:], dx, dy, dz, xu_list[0,:,:], xv_list[0,:,:], xw_list[0,:,:])
             u_error = jnp.sqrt(jnp.mean((u_pred - particle_vel[0,:,0])**2)/jnp.mean(particle_vel[0,:,0]**2))
@@ -210,7 +212,7 @@ class FlowFit3(FlowFitbase):
             #    T_error = jnp.sqrt(jnp.mean((all_params["data"]["T_ref"]*v_pred[:,4] - e_batch_T)**2)/jnp.mean(e_batch_T**2))
 
             #Losses = report_fn(dynamic_params, all_params, g_batch, p_batch, v_batch, b_batch, model_fns)
-            print(f"step_num : {i:<{12}} u_error : {u_error:<{12}.{5}} v_error : {v_error:<{12}.{5}} w_error : {w_error:<{12}.{5}}")
+            print(f"step_num : {i:<{12}} t_loss : {t_loss:<{12}.{5}} u_loss : {u_loss:<{12}.{5}} v_loss : {v_loss:<{12}.{5}} w_loss : {w_loss:<{12}.{5}} p_loss : {p_loss:<{12}.{5}} u_error : {u_error:<{12}.{5}} v_error : {v_error:<{12}.{5}} w_error : {w_error:<{12}.{5}}")
             with open(self.c.report_out_dir + "reports.txt", "a") as f:
                 f.write(f"{i:<{12}} {u_error:<{12}.{5}} {v_error:<{12}.{5}} {w_error:<{12}.{5}}\n")
             f.close()

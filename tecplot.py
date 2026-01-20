@@ -100,6 +100,7 @@ def Tecplotfile_gen(path, name, all_params, train_data, domain_range, output_sha
     print(np.max(eval_grid_e[:,0]), np.min(eval_grid_e[:,0]))
     print(np.max(eval_grid_e[:,1]), np.min(eval_grid_e[:,1]))
     print(np.max(eval_grid_e[:,2]), np.min(eval_grid_e[:,2]))
+    print(np.max(dynamic_params))
     # Evaluate the derivatives
     #uvwp, vor_mag, Q, deriv_mat = zip(*[Derivatives(dynamic_params, all_params, eval_grid[i:i+10000], model_fn)
     #                                    for i in range(0, eval_grid.shape[0], 10000)])
