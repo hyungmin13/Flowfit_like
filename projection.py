@@ -20,7 +20,7 @@ class FFTProjector(Projector):
         c0s = [random.normal(key = keys[i], shape=coeff_shape)*0.1 for i in range(time_length)]
         coefficients = np.concatenate([np.expand_dims(FFTProjector.helmholtz_hodge_decomposition(c0s[i])[0],axis=0) for i in range(len(c0s))])
         
-        projection_params = {"coefficients": coefficients, "time_legth": time_length}
+        projection_params = {"coefficients": coefficients, "time_length": time_length}
         return projection_params
     
     @staticmethod

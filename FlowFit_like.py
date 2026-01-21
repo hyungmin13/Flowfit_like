@@ -54,7 +54,7 @@ def FlowFit_update(model_states, optimiser_fn, equation_fn, dynamic_params, stat
         new_param = optax.apply_updates(d_p, updates)
         return new_param, new_state, val
 
-    vmap_fn = jax.vmap(single_update, in_axes=(0, state_in_axes, 0, 0, 0, 0, 0), out_axes=(0, state_out_axes, 0))
+    vmap_fn = jax.vmap(single_update, in_axes=(0, state_in_axes, 0, 0, 0), out_axes=(0, state_out_axes, 0))
     #dynamic_zero = dynamic_params[0,:,:,:,:]
     #lossval, grad = value_and_grad(equation_fn, argnums=0)(dynamic_params, all_params, index_list[0,:,:,:], dx, dy, dz, xu_list[0,:,:], xv_list[0,:,:], xw_list[0,:,:], particle_vel[0,:,:], model_fn)
     #updates, new_state = optimiser_fn(grad, model_states, dynamic_params)
@@ -118,7 +118,7 @@ class FlowFit3(FlowFitbase):
         pos_n = pos - pos_f
 
         index_list = []
-        B_val_lists = []
+        B_val_list = []
         particle_vel = []
         particle_acc = []
         funcs = [B_spline.beta4, B_spline.beta3, B_spline.beta3, 
@@ -131,12 +131,12 @@ class FlowFit3(FlowFitbase):
             for j in range(9):
                 B_val.append(funcs[j](pos_n[np.sum(counts[:i]):np.sum(counts[:i+1]),j%3]))
             B_val = np.vstack(B_val).transpose()
-            B_val_lists.append(B_val)
+            B_val_list.append(B_val)
             particle_vel.append(train_data['vel'][np.sum(counts[:i]):np.sum(counts[:i+1]),:])
             particle_acc.append(train_data['acc'][np.sum(counts[:i]):np.sum(counts[:i+1]),:])
             index_list.append(np.concatenate(indexes,axis=1))
 
-        max_n = max(x.shape[0] for x in B_val_lists)
+        max_n = max(x.shape[0] for x in B_val_list)
         max_n2 = max(x.shape[0] for x in index_list)
         max_n3 = max(x.shape[0] for x in particle_vel)
         def pad_array(arr, target_shape):
@@ -157,7 +157,7 @@ class FlowFit3(FlowFitbase):
         B_val_list = jnp.stack(B_val_padded)[:all_params["projection"]['time_length'],:,:]
         B_val_mask = jnp.stack(B_val_mask)[:all_params["projection"]['time_length'],:]
 
-        index_padded, index_mask = zip(*[pad_array2(x, max_n2) for x in index_list])
+        index_padded, index_mask = zip(*[pad_array(x, max_n2) for x in index_list])
         index_list = jnp.stack(index_padded)[:all_params["projection"]['time_length'],:,:]
         index_mask = jnp.stack(index_mask)[:all_params["projection"]['time_length'],:]
         
@@ -198,7 +198,7 @@ class FlowFit3(FlowFitbase):
         if save_report:
             all_params["projection"]['coefficients'] = dynamic_params
 
-            t_loss, u_loss, v_loss, w_loss, hp_loss = report_fn(dynamic_params[0,:,:,:,:], all_params, index_list[0,:,:], B_val_list[0,:,:])
+            t_loss, u_loss, v_loss, w_loss, hp_loss = report_fn(dynamic_params[0,:,:,:,:], all_params, index_list[0,:,:], B_val_list[0,:,:], particle_vel[0,:,:], model_fns)
             u_pred, v_pred, w_pred = model_fns(dynamic_params[0,:,:,:,:], index_list[0,:,:], B_val_list[0,:,:])
             u_error = jnp.sqrt(jnp.mean((u_pred - particle_vel[0,:,0])**2)/jnp.mean(particle_vel[0,:,0]**2))
             v_error = jnp.sqrt(jnp.mean((v_pred - particle_vel[0,:,1])**2)/jnp.mean(particle_vel[0,:,1]**2))
