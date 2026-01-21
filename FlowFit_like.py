@@ -50,6 +50,7 @@ def FlowFit_update(model_states, optimiser_fn, equation_fn, dynamic_params, stat
         val, grad = jax.value_and_grad(local_loss)(d_p)
         grad_projection = projection_fn(grad)[0]
         updates, new_state = optimiser_fn(grad_projection, state, d_p, value=val, grad=grad_projection, value_fn=local_loss)
+        #updates, new_state = optimiser_fn(grad_projection, state, d_p)
         new_param = optax.apply_updates(d_p, updates)
         return new_param, new_state, val
 
@@ -90,8 +91,8 @@ class FlowFit3(FlowFitbase):
         learn_rate = optax.exponential_decay(self.c.optimization_init_kwargs["learning_rate"],
                                              self.c.optimization_init_kwargs["decay_step"],
                                              self.c.optimization_init_kwargs["decay_rate"],)
-        optimiser = optax.adam(1e-3)
-
+        #optimiser = optax.sgd(learning_rate=1e-3, momentum=0.9)
+        optimiser = optax.adam(learning_rate=1e-3)
         model_states = optimiser.init(all_params["projection"]['coefficients'])
 
         optimiser_fn = optimiser.update
@@ -125,7 +126,7 @@ class FlowFit3(FlowFitbase):
                 B_spline.beta3, B_spline.beta3, B_spline.beta4]
         
         for i in range(len(counts)):
-            indexes = VelocityPrediction3D.find_indexes(pos[np.sum(counts[:i]):np.sum(counts[:i+1]),1:])
+            indexes = VelocityPrediction3D.find_indexes(pos[np.sum(counts[:i]):np.sum(counts[:i+1]),:])
             B_val = []
             for j in range(9):
                 B_val.append(funcs[j](pos_n[np.sum(counts[:i]):np.sum(counts[:i+1]),j%3]))
@@ -133,7 +134,7 @@ class FlowFit3(FlowFitbase):
             B_val_lists.append(B_val)
             particle_vel.append(train_data['vel'][np.sum(counts[:i]):np.sum(counts[:i+1]),:])
             particle_acc.append(train_data['acc'][np.sum(counts[:i]):np.sum(counts[:i+1]),:])
-            index_list.append(np.array(indexes))
+            index_list.append(np.concatenate(indexes,axis=1))
 
         max_n = max(x.shape[0] for x in B_val_lists)
         max_n2 = max(x.shape[0] for x in index_list)

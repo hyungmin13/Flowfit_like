@@ -24,6 +24,9 @@ class Linear(Equation):
         loss_u = jnp.sum(loss_u**2)
         loss_v = jnp.sum(loss_v**2)
         loss_w = jnp.sum(loss_w**2)
+        loss_u = jnp.sum(loss_u**2)
+        loss_v = jnp.sum(loss_v**2)
+        loss_w = jnp.sum(loss_w**2)
         
         #hp_filter = jnp.array([-0.25, 0.5, -0.25])*1e-2
         sum_of_squared_errors = 0.0
@@ -34,7 +37,7 @@ class Linear(Equation):
             hp_z = 0.5 * vel_comp[:, :, 1:-1] - 0.25 * (vel_comp[:, :, :-2] + vel_comp[:, :, 2:])
             sum_of_squared_errors += jnp.sum(hp_x**2) + jnp.sum(hp_y**2) + jnp.sum(hp_z**2)
 
-        total_loss = loss_u + loss_v + loss_w + 0.5 * sum_of_squared_errors
+        total_loss = loss_u + loss_v + loss_w + 1e-6 * sum_of_squared_errors
         return total_loss
     
     @staticmethod
@@ -48,11 +51,17 @@ class Linear(Equation):
         loss_u = jnp.sum(loss_u**2)
         loss_v = jnp.sum(loss_v**2)
         loss_w = jnp.sum(loss_w**2)
+        loss_u = jnp.sum(loss_u**2)
+        loss_v = jnp.sum(loss_v**2)
+        loss_w = jnp.sum(loss_w**2)
 
         #hp_filter = jnp.array([-0.25, 0.5, -0.25])*1e-2
         sum_of_squared_errors = 0.0
         for k in range(3):
             vel_comp = dynamic_params[...,k]
+            hp_x = 0.5 * vel_comp[1:-1, :, :] - 0.25 * (vel_comp[:-2, :, :] + vel_comp[2:, :, :])
+            hp_y = 0.5 * vel_comp[:, 1:-1, :] - 0.25 * (vel_comp[:, :-2, :] + vel_comp[:, 2:, :])
+            hp_z = 0.5 * vel_comp[:, :, 1:-1] - 0.25 * (vel_comp[:, :, :-2] + vel_comp[:, :, 2:])
             hp_x = 0.5 * vel_comp[1:-1, :, :] - 0.25 * (vel_comp[:-2, :, :] + vel_comp[2:, :, :])
             hp_y = 0.5 * vel_comp[:, 1:-1, :] - 0.25 * (vel_comp[:, :-2, :] + vel_comp[:, 2:, :])
             hp_z = 0.5 * vel_comp[:, :, 1:-1] - 0.25 * (vel_comp[:, :, :-2] + vel_comp[:, :, 2:])
