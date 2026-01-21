@@ -44,9 +44,9 @@ class Linear(Equation):
     def Loss_report(dynamic_params, all_params, indexes, B_val, particle_vel, model_fns):
         all_params["projection"]["coefficients"] = dynamic_params
         u_pred, v_pred, w_pred = model_fns(dynamic_params, indexes, B_val) 
-        loss_u = u_pred - particle_vel[:,0:1]
-        loss_v = v_pred - particle_vel[:,1:2]
-        loss_w = w_pred - particle_vel[:,2:3]
+        loss_u = u_pred - particle_vel[:,0]
+        loss_v = v_pred - particle_vel[:,1]
+        loss_w = w_pred - particle_vel[:,2]
 
         loss_u = jnp.sum(loss_u**2)
         loss_v = jnp.sum(loss_v**2)
