@@ -43,14 +43,14 @@ class FlowFit3_eval(FlowFitbase):
         return all_params, model_fn, train_data
     
 
-def Derivatives(dynamic_param, all_params, index, dx, dy, dz, xu, xv, xw, model_fns):
+def Derivatives(dynamic_param, all_params, index, B_val, model_fns):
     keys = ['u_ref', 'v_ref', 'w_ref', 'u_ref']
 
     #all_params["projection"]["coefficients"] = dynamic_params
     #out, out_x = equ_func2(all_params, g_batch, jnp.tile(jnp.array([[0.0, 1.0, 0.0, 0.0]]),(g_batch.shape[0],1)),model_fns)
     #out, out_y = equ_func2(all_params, g_batch, jnp.tile(jnp.array([[0.0, 0.0, 1.0, 0.0]]),(g_batch.shape[0],1)),model_fns)
     #out, out_z = equ_func2(all_params, g_batch, jnp.tile(jnp.array([[0.0, 0.0, 0.0, 1.0]]),(g_batch.shape[0],1)),model_fns)    
-    u_pred, v_pred, w_pred = model_fns(dynamic_param, index, dx, dy, dz, xu, xv, xw)
+    u_pred, v_pred, w_pred = model_fns(dynamic_param, index, B_val)
     #uvwp = np.concatenate([out[:,k:(k+1)]*all_params["data"][keys[k]] for k in range(len(keys))],1)
     #uvwp = np.concatenate([u_pred.reshape(-1,1), v_pred.reshape(-1,1), w_pred.reshape(-1,1)],1)
 
@@ -94,7 +94,9 @@ def Tecplotfile_gen(path, name, all_params, train_data, domain_range, output_sha
             x_e, y_e, z_e = np.meshgrid(gridbase[-3], gridbase[-2], gridbase[-1], indexing='ij') 
     #t_e = np.zeros(output_shape[1:]) + gridbase[0][timestep]
 
-    eval_grid_e = np.concatenate([x_e.reshape(-1,1), y_e.reshape(-1,1), z_e.reshape(-1,1)], axis=1)
+    eval_grid_e = np.concatenate([x_e.reshape(-1,1)/dx + 2, y_e.reshape(-1,1)/dy + 2, z_e.reshape(-1,1)/dz + 2], axis=1)
+    eval_grid_e_f = np.floor(eval_grid_e)
+    eval_grid_e_n = eval_grid_e - eval_grid_e_f
     # Load Ground truth data if is_ground is True
 
     print(np.max(eval_grid_e[:,0]), np.min(eval_grid_e[:,0]))
@@ -104,10 +106,19 @@ def Tecplotfile_gen(path, name, all_params, train_data, domain_range, output_sha
     # Evaluate the derivatives
     #uvwp, vor_mag, Q, deriv_mat = zip(*[Derivatives(dynamic_params, all_params, eval_grid[i:i+10000], model_fn)
     #                                    for i in range(0, eval_grid.shape[0], 10000)])
-    indexes = VelocityPrediction3D.find_indexes(eval_grid_e, xc, yc, zc, dx, dy, dz)
-    xu, xv, xw = VelocityPrediction3D.data_reshape(eval_grid_e, *indexes, dx, dy, dz, xc, yc, zc)
-    indexes = np.array(indexes)
-    u_pred, v_pred, w_pred = zip(*[Derivatives(dynamic_params[i,:,:,:,:], all_params, indexes, dx, dy, dz, xu, xv, xw, model_fn)
+    funcs = [B_spline.beta4, B_spline.beta3, B_spline.beta3, 
+            B_spline.beta3, B_spline.beta4, B_spline.beta3,
+            B_spline.beta3, B_spline.beta3, B_spline.beta4]
+    indexes = VelocityPrediction3D.find_indexes(eval_grid_e)
+    B_val = []
+    for j in range(9):
+        B_val.append(funcs[j](eval_grid_e_n[:,j%3]))
+    B_val = np.vstack(B_val).transpose()
+    
+    indexes = np.concatenate(indexes, axis=1)
+    print(indexes.shape)
+    print(dynamic_params.shape)
+    u_pred, v_pred, w_pred = zip(*[Derivatives(dynamic_params[i,:,:,:,:], all_params, indexes, B_val, model_fn)
                             for i in range(len(timestep))])
     
     #vals, counts = np.unique(train_data['pos'][:,0], return_counts=True)
