@@ -1,5 +1,7 @@
+#%%
 import numpy as np
 import jax.numpy as jnp
+from time import time
 class B_spline_bases:
     @staticmethod
     def init_params(*args):
@@ -10,34 +12,43 @@ class B_spline_bases:
     @staticmethod
     def beta4(*args):
         raise NotImplementedError
-
 class B_spline(B_spline_bases):
+    cubic_0th = np.array([[ -1.0/6,  3.0/6, -3.0/6,  1.0/6 ], [  3.0/6, -6.0/6,  0.0/6,  4.0/6 ], [ -3.0/6,  3.0/6,  3.0/6,  1.0/6 ], [  1.0/6,  0.0/6,  0.0/6,  0.0/6 ]])
+    cubic_1st = np.array([[ -1.0/2,  2.0/2, -1.0/2 ], [  3.0/2, -4.0/2,  0.0/2 ], [ -3.0/2,  2.0/2,  1.0/2 ], [  1.0/2,  0.0/2,  0.0/2 ]])
+    cubic_2nd = np.array([[ -1.0,  1.0 ], [  3.0, -2.0 ], [ -3.0,  1.0 ], [  1.0,  0.0 ]])
+
+    # Quartic Coefficients [Segment][Coeffs]
+    quartic_0th = np.array([[   1.0/24,  -4.0/24,   6.0/24,  -4.0/24,   1.0/24 ], [  -4.0/24,  12.0/24,  -6.0/24, -12.0/24,  11.0/24 ], [   6.0/24, -12.0/24,  -6.0/24,  12.0/24,  11.0/24 ], 
+        [  -4.0/24,   4.0/24,   6.0/24,   4.0/24,   1.0/24 ], [   1.0/24,   0.0/24,   0.0/24,   0.0/24,   0.0/24 ]])
+
+    quartic_1st = np.array([[  1.0/6, -3.0/6,  3.0/6, -1.0/6 ], [ -4.0/6,  9.0/6, -3.0/6, -3.0/6 ], [  6.0/6, -9.0/6, -3.0/6,  3.0/6 ], 
+        [ -4.0/6,  3.0/6,  3.0/6,  1.0/6 ], [  1.0/6,  0.0/6,  0.0/6,  0.0/6 ]])
+
+    quartic_2nd = np.array([[  1.0/2, -2.0/2,  1.0/2 ], [ -4.0/2,  6.0/2, -1.0/2 ], [  6.0/2, -6.0/2, -1.0/2 ], [ -4.0/2,  2.0/2,  1.0/2 ], [  1.0/2,  0.0/2,  0.0/2 ]])
     def __init__(self, all_params):
         self.all_params = all_params
+
     @staticmethod
     def beta3(t):
-
-        a = jnp.abs(t)
-        val1 = 2.0/3.0 - a**2 + 0.5 * a**3
-        val2 = (1.0/6.0) * (2.0 - a)**3
-        return jnp.where(a < 1.0, val1,
-                        jnp.where(a < 2.0, val2, 0.0))
+        res = B_spline.cubic_0th[:,0:1]
+        for i in range(1,4):
+            res = t * res + B_spline.cubic_0th[:,i:i+1]
+        return res
     @staticmethod
     def beta4(t):
-        a = jnp.abs(t)
+        res = B_spline.quartic_0th[:,0:1]
+        for i in range(1,5):
+            res = t * res + B_spline.quartic_0th[:,i:i+1]
+        return res
 
-        region1 = (a < 0.5)
-        val1 = (1.0/4.0) * a**4 - (5.0/8.0) * a**2 + (115.0/192.0)
-
-        region2 = (a >= 0.5) & (a < 1.5)
-        val2 = (-1.0/6.0) * a**4 + (5.0/6.0) * a**3 - (5.0/4.0) * a**2 \
-            + (5.0/24.0) * a + (55.0/96.0)
-
-        region3 = (a >= 1.5) & (a < 2.5)
-        val3 = (1.0/24.0) * (2.5 - a)**4
-        return jnp.where(region1, val1,
-                        jnp.where(region2, val2,
-                                jnp.where(region3, val3, 0.0)))
-
+    
 if __name__=="__main__":
     import matplotlib.pyplot as plt
+    t = np.linspace(0,1,100)
+    times = []
+    #func = B_spline(1)
+    for i in range(1000):
+        time_ = time()
+        res = B_spline.beta3(t)
+        times.append(time()-time_)
+    print(np.mean(times))
